@@ -144,6 +144,13 @@ func (c *client) CreateFunction(ctx context.Context, fm FunctionManifest) error 
 		input.Code = &types.FunctionCode{
 			ImageUri: aws.String(fm.Spec.ImageURI),
 		}
+		if fm.Spec.ImageConfig != nil {
+			input.ImageConfig = &types.ImageConfig{
+				Command:          fm.Spec.ImageConfig.Command,
+				EntryPoint:       fm.Spec.ImageConfig.EntryPoint,
+				WorkingDirectory: aws.String(fm.Spec.ImageConfig.WorkingDir),
+			}
+		}
 	}
 	// Zip packing which stored in s3.
 	if fm.Spec.S3Bucket != "" {
@@ -312,6 +319,13 @@ func (c *client) updateFunctionConfiguration(ctx context.Context, fm FunctionMan
 			configInput.VpcConfig = &types.VpcConfig{
 				SecurityGroupIds: fm.Spec.VPCConfig.SecurityGroupIDs,
 				SubnetIds:        fm.Spec.VPCConfig.SubnetIDs,
+			}
+		}
+		if fm.Spec.ImageURI == "" && fm.Spec.ImageConfig != nil {
+			configInput.ImageConfig = &types.ImageConfig{
+				Command:          fm.Spec.ImageConfig.Command,
+				EntryPoint:       fm.Spec.ImageConfig.EntryPoint,
+				WorkingDirectory: aws.String(fm.Spec.ImageConfig.WorkingDir),
 			}
 		}
 		_, err = c.client.UpdateFunctionConfiguration(ctx, configInput)
