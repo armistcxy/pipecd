@@ -6,3 +6,7 @@ spec:
   image: 992382718026.dkr.ecr.ap-southeast-1.amazonaws.com/lambda-imageconfig-test:latest
   memory: 512
   timeout: 30
+  imageConfig:
+    command:
+      - "CMD1"
+    
