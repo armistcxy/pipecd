@@ -1,0 +1,6 @@
+apiVersion: pipecd.dev/v1beta1
+kind: LambdaApp
+spec:
+  name: image-config-test
+  input:
+    functionManifestFile: function.yaml
