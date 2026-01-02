@@ -3,6 +3,6 @@ kind: LambdaFunction
 spec:
   name: TestImageConfig 
   role: arn:aws:iam::992382718026:role/lambda-basic-role
-  image: 992382718026.dkr.ecr.ap-southeast-1.amazonaws.com/lambda-imageconfig-test
+  image: 992382718026.dkr.ecr.ap-southeast-1.amazonaws.com/lambda-imageconfig-test:latest
   memory: 512
   timeout: 30
