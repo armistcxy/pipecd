@@ -50,6 +50,7 @@ func TestECSSyncStage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create logger: %v", err)
 	}
+	logger = logger.WithOptions(zap.AddCaller(), zap.AddCallerSkip(1))
 
 	testcases := []struct {
 		name  string
