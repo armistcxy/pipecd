@@ -11,15 +11,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
+	"github.com/pipe-cd/pipecd/pkg/app/piped/platformprovider"
 	appconfig "github.com/pipe-cd/pipecd/pkg/app/pipedv1/plugin/ecs/config"
 	"github.com/pipe-cd/pipecd/pkg/backoff"
 )
 
 const (
 	// WaitServiceStable's constants.
-	retryServiceStableMinDelay = 20 * time.Second
-	retryServiceStableMaxDelay = 180 * time.Second
-	retryServiceStableMaxWait  = 10 * time.Minute // Total wait time for service to be stable, this is a hard limit to avoid infinite wait.
+	retryServiceStable         = 40
+	retryServiceStableInterval = 15 * time.Second
 
 	// WaitTaskSetStable's constants.
 	maxTaskSetStableRetries    = 5
@@ -273,19 +273,35 @@ func (c *client) ServiceExists(ctx context.Context, cluster, serviceName string)
 
 // WaitServiceStable blocks until the ECS service is stable.
 // It returns nil if the service is stable, otherwise it returns an error.
-// In the piped v0 implementation, the workaround implementation is used.
-// But now AWS support ServiceStableWaiter, we can use that method directly.
-func (c *client) WaitServiceStable(ctx context.Context, cluster, serviceName string) error {
+// Note: This function follow the implementation of the AWS CLI.
+// AWS does not public API for waiting service stable, thus we use describe-service and workaround instead.
+// ref: https://docs.aws.amazon.com/cli/latest/reference/ecs/wait/services-stable.html
+func (c *client) WaitServiceStable(ctx context.Context, clusterArn, service string) error {
 	input := &ecs.DescribeServicesInput{
-		Cluster:  aws.String(cluster),
-		Services: []string{serviceName},
+		Cluster:  aws.String(clusterArn),
+		Services: []string{service},
 	}
 
-	waiter := ecs.NewServicesStableWaiter(c.ecsClient)
-	return waiter.Wait(ctx, input, retryServiceStableMaxWait, func(o *ecs.ServicesStableWaiterOptions) {
-		o.MinDelay = retryServiceStableMinDelay
-		o.MaxDelay = retryServiceStableMaxDelay
+	retry := backoff.NewRetry(retryServiceStable, backoff.NewConstant(retryServiceStableInterval))
+	_, err := retry.Do(ctx, func() (interface{}, error) {
+		output, err := c.ecsClient.DescribeServices(ctx, input)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get service %s: %w", service, err)
+		}
+
+		if len(output.Services) == 0 {
+			return nil, platformprovider.ErrNotFound
+		}
+
+		svc := output.Services[0]
+		if svc.PendingCount == 0 && svc.RunningCount >= svc.DesiredCount {
+			return nil, nil
+		}
+
+		return nil, fmt.Errorf("service %s is not stable", service)
 	})
+
+	return err
 }
 
 func (c *client) GetServiceStatus(ctx context.Context, cluster, serviceName string) (string, error) {
