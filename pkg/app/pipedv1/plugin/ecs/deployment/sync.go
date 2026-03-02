@@ -174,12 +174,23 @@ func applyServiceDefinition(
 
 	var service *types.Service
 	if found {
-		lp.Infof("Service %s already exists, updating the service", *serviceDef.ServiceName)
-		service, err = client.UpdateService(ctx, serviceDef)
+		svcStatus, err := client.GetServiceStatus(ctx, *serviceDef.ClusterArn, *serviceDef.ServiceName)
 		if err != nil {
-			return nil, fmt.Errorf("failed to update service %s: %w", *serviceDef.ServiceName, err)
+			return nil, fmt.Errorf("failed to get service %s status: %w", *serviceDef.ServiceName, err)
 		}
+		lp.Infof("Service %s already exists with status %s", *serviceDef.ServiceName, svcStatus)
 
+		// Only update the service when it is in ACTIVE status
+		// Nothing can be performed if the service is in DRAINING or INACTIVE status
+		if svcStatus == "ACTIVE" {
+			lp.Infof("Updating service %s", *serviceDef.ServiceName)
+			service, err = client.UpdateService(ctx, serviceDef)
+			if err != nil {
+				return nil, fmt.Errorf("failed to update service %s: %w", *serviceDef.ServiceName, err)
+			}
+		} else {
+			return nil, fmt.Errorf("service %s is in %s status, cannot be updated", *serviceDef.ServiceName, svcStatus)
+		}
 		// TODO: Deal with service tags later
 	} else {
 		lp.Infof("Service %s does not exist, creating a new service", *serviceDef.ServiceName)

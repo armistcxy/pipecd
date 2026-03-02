@@ -288,6 +288,21 @@ func (c *client) WaitServiceStable(ctx context.Context, cluster, serviceName str
 	})
 }
 
+func (c *client) GetServiceStatus(ctx context.Context, cluster, serviceName string) (string, error) {
+	input := &ecs.DescribeServicesInput{
+		Cluster:  aws.String(cluster),
+		Services: []string{serviceName},
+	}
+	output, err := c.ecsClient.DescribeServices(ctx, input)
+	if err != nil {
+		return "", fmt.Errorf("failed to get service %s description: %w", serviceName, err)
+	}
+	if len(output.Services) == 0 {
+		return "", fmt.Errorf("services %s does not exist", serviceName)
+	}
+	return *output.Services[0].Status, nil
+}
+
 func (c *client) RegisterTaskDefinition(ctx context.Context, taskDef types.TaskDefinition) (*types.TaskDefinition, error) {
 	input := &ecs.RegisterTaskDefinitionInput{
 		Family:                  taskDef.Family,
